@@ -28,12 +28,6 @@ def read_fasta_file(filename):
         sequences[name] = ''.join(lines)
     return sequences
 
-#write fasta file
-def write_fasta_file(filename,string):
-    f=open(f"filename.fa","w")
-    f.write(f">{filename}\n{string}\n")
-    f.close()
-
 #translate from letters to indices
 def translate_observations_to_indices(obs):
     mapping = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
@@ -44,10 +38,34 @@ def translate_annotations_to_indices(obs):
     mapping = {'N': 0, 'C': 7, 'R': 8}
     return [mapping[symbol] for symbol in obs]
 
+data={}
+for i in np.arange(1,11):
+    temp={}
+    temp[f'genome{str(i)}'] = read_fasta_file(f'genome{str(i)}.fa')[f'genome{str(i)}']
+    data.update(temp)
+for i in np.arange(1,6):
+    temp={}
+    temp[f'true-ann{str(i)}'] = read_fasta_file(f'true-ann{str(i)}.fa')[f'true-ann{str(i)}']
+    data.update(temp)
+
+#load into data
+data2 = {}
+for i in np.arange(1,11):
+    temp={}
+    temp[f'genome{str(i)}'] = translate_observations_to_indices(read_fasta_file(f'genome{str(i)}.fa')[f'genome{str(i)}'])
+    data2.update(temp)
+for i in np.arange(1,6):
+    temp={}
+    temp[f'true-ann{str(i)}'] = translate_annotations_to_indices(read_fasta_file(f'true-ann{str(i)}.fa')[f'true-ann{str(i)}'])
+    data2.update(temp)
+
+
+
+
+#group codons
 triplet_indices=[[0],[1],[2],[3]]
 triplet_indices+=[list(x) for x in itertools.product([0,1,2,3],repeat=3)]
 
-#group codons
 def group_codons(ann):
     i=1
     out=[0]
@@ -83,115 +101,21 @@ def group_codons(ann):
         i+=1
     return out
 
-"""
-#translate back to observations string
-def translate_indices_to_observations(indices):
-    mapping = ['A', 'C', 'G', 'T']
-    return ''.join(mapping[idx] for idx in indices)
-"""
-"""            genome[i]=triplet_indices.index([genome[i],genome[i+1],genome[i+2]])+4
-            genome.pop(i+1)
-            genome.pop(i+2)"""
+data3=data2
 
-#translate states back to annotations string
-def translate_indices_to_annotations(ann):
-    mapping = ['N', 'CCC', 'CCC', 'CCC', 'RRR', 'RRR', 'RRR']
-    return ''.join(mapping[idx] for idx in ann)
+for i in np.arange(1,6):
+    data3[f"true-ann{str(i)}"]=group_codons(data3[f"true-ann{str(i)}"])
 
-#create a class
+
+
+
 class hmm:
     def __init__(self, init_probs, trans_probs, emission_probs):
         self.init_probs = init_probs
         self.trans_probs = trans_probs
         self.emission_probs = emission_probs
 
-#validate the model works
-def validate_hmm(model):
-    return np.allclose(np.sum(model.init_probs),1) and np.allclose(np.sum(model.trans_probs,1),1) and np.allclose(np.sum(model.emission_probs,1),1) and all(np.reshape(model.init_probs,-1) <= 1) and all(np.reshape(model.trans_probs,-1) <= 1) and all(np.reshape(model.emission_probs,-1) <= 1) and all(np.reshape(model.init_probs,-1) >= 0) and all(np.reshape(model.trans_probs,-1) >= 0) and all(np.reshape(model.emission_probs,-1) >= 0)
-
-#optimal path probability
-def opt_path_prob_log(w):
-    return max(w[:,-1])
-
-#compute the joint log probability
-def joint_prob_log(model, x, z):
-    output=np.log(model.init_probs[z[0]])
-    for i in np.arange(1,len(x)):
-        output+=np.log(model.trans_probs[z[i-1]][z[i]])
-    for j in np.arange(len(x)):
-        output+=np.log(model.emission_probs[z[j]][x[j]])
-    return output
-
-def compute_w_log(model, x):
-    k = len(model.init_probs)
-    n = len(x)
-    w = np.zeros((k, n))
-    # Base case: fill out w[i][0] for i = 0..k-1
-    # ...
-    for i in np.arange(0,k):
-        w[i,0]=np.log(model.init_probs[i])+np.log(model.emission_probs[i][x[0]])
-    # Inductive case: fill out w[i][j] for i = 0..k, j = 0..n-1
-    # ...
-    for j in np.arange(1,n):
-        for i in np.arange(0,k):
-            w[i,j]=np.log(model.emission_probs[i][x[j]])+max(w[:,j-1]+np.log(np.array(model.trans_probs)[:,i]))
-    return w
-
-def compute_w_log_var(model, x):
-    k = len(model.init_probs)
-    n = len(x)
-    w = np.zeros((k, n))
-    # Base case: fill out w[i][0] for i = 0..k-1
-    # ...
-    for i in np.arange(0,k):
-        w[i,0]=np.log(model.init_probs[i])+np.log(model.emission_probs[i,x[0]])
-    # Inductive case: fill out w[i][j] for i = 0..k, j = 0..n-1
-    # ...
-    for j in np.arange(1,n):
-        for i in np.arange(0,k):
-            if i != 0:
-                if len(x[j-d[i]+1:j+1])==3:
-                    w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
-                else:
-                    w[i,j]=np.log(0)
-            else:
-                w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
-    return w
-
-def backtrack_log(model, x, w):
-    n=w.shape[1]
-    zstar=[None]*n
-    zstar[n-1]=np.argmax(w[:,-1])
-    for i in np.arange(1,n):
-        zstar[n-1-i]=np.argmax(np.log(model.emission_probs[zstar[n-i],x[n-i]])+w[:,n-1-i]+np.log(np.array(model.trans_probs)[:,zstar[n-i]]))
-    return zstar
-
-def backtrack_log_var(model, x, w):
-    n=len(x)
-    zstar=[]
-    total=n
-    zstar.append(np.argmax(w[:,total-1]))
-    total-=d[zstar[0]]
-    count=1
-    while total>0:
-        #check this line
-        zstar.append(np.argmax(np.log(model.emission_probs[zstar[count-1],triplet_indices.index(x[total-d[zstar[count-1]]:total])])+w[:,total-1]+np.log(np.array(model.trans_probs)[:,zstar[count-1]])))
-        total-=d[zstar[count]]
-        count+=1
-    zstar.reverse()
-    return zstar
-
-def count_transitions_and_emissions(K, D, x, z):
-    """
-    Returns a KxK matrix and a KxD matrix containing counts cf. above
-    """
-    kxk=np.zeros((K,K))
-    kxd=np.zeros((K,D))
-    for i in np.arange(len(x)):
-        kxd[z[i]][x[i]]+=1
-    for j in np.arange(len(z)-1):
-        kxk[z[j]][z[j+1]]+=1
-    return kxk,kxd
+d=[1,3,3,3,3,3,3]
 
 def count_transitions_and_emissions_var(K, D, x, z):
     """
@@ -209,17 +133,6 @@ def count_transitions_and_emissions_var(K, D, x, z):
         kxk[z[j]][z[j+1]]+=1
     return kxk,kxd
 
-def training_by_counting(K, D, x, z):
-    """
-    Returns a HMM trained on x and z cf. training-by-counting.
-    """
-    init_probs=np.zeros(K)
-    init_probs[z[0]]=1
-    trans_probs,emission_probs=count_transitions_and_emissions(K,D,x,z)
-    trans_probs/=np.sum(trans_probs,1).reshape(-1,1)
-    emission_probs/=np.sum(emission_probs,1).reshape(-1,1)
-    return hmm(init_probs,trans_probs,emission_probs)
-
 def training_by_counting_var(K, D, x, z):
     """
     Returns a HMM trained on x and z cf. training-by-counting.
@@ -230,16 +143,82 @@ def training_by_counting_var(K, D, x, z):
     trans_probs/=np.sum(trans_probs,1).reshape(-1,1)
     emission_probs/=np.sum(emission_probs,1).reshape(-1,1)
     return hmm(init_probs,trans_probs,emission_probs)
-"""
-def ac(z,zstar):
-    tp=
-    fp=
-    fn=
-    tn=
-    acp=(1/4)*((tp/(tp+fn))+(tp/(tp+fp))+(tn/(tn+fp))+(tn/(tn+fn)))
-    out=(acp-0.5)*2
-    return out
-"""
+
+#count emission probs
+result=[]
+for i in np.arange(5):
+    four_test=np.delete(np.arange(5),[i])
+    four_genome=[]
+    four_ann=[]
+    for j in four_test:
+        four_genome.extend(data3[f"genome{str(j+1)}"])
+        four_ann.extend(data3[f"true-ann{str(j+1)}"])
+    result.append(training_by_counting_var(7,68,four_genome,four_ann))
+
+
+
+
+data4=data3
+
+def compute_w_log_var(model, x):
+    k = len(model.init_probs)
+    n = len(x)
+    w = np.zeros((k, n))
+    # Base case: fill out w[i][0] for i = 0..k-1
+    # ...
+    for i in np.arange(0,k):
+        w[i,0]=np.log(model.init_probs[i])+np.log(model.emission_probs[i,x[0]])
+    # Inductive case: fill out w[i][j] for i = 0..k, j = 0..n-1
+    # ...
+    j=1
+    for i in np.arange(0,k):
+        if i != 0:
+            w[i,j]=np.log(0)
+        else:
+            w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
+    j=2
+    for i in np.arange(0,k):
+        if i in [2,3,5,6]:
+            w[i,j]=np.log(0)
+        else:
+            w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
+    for j in np.arange(3,n):
+        for i in np.arange(k):
+            w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
+    return w
+
+w=[]
+for i in np.arange(5):
+    w.append(compute_w_log_var(result[i],data4[f"genome{str(i+1)}"]))
+
+
+
+
+def backtrack_log_var(model, x, w):
+    n=len(x)
+    zstar=[]
+    total=n
+    zstar.append(np.argmax(w[:,total-1]))
+    total-=d[zstar[0]]
+    count=1
+    while total>0:
+        zstar.append(np.argmax(w[:,total-1]+np.log(np.array(model.trans_probs)[:,zstar[count-1]])))
+        total-=d[zstar[count]]
+        count+=1
+    zstar.reverse()
+    return zstar
+
+
+for i in np.arange(5):
+    data4[f"pred-ann{str(i+1)}"]=backtrack_log_var(result[i],data4[f"genome{str(i+1)}"],w[i])
+
+
+
+
+def translate_indices_to_annotations(ann):
+    mapping = ['N', 'CCC', 'CCC', 'CCC', 'RRR', 'RRR', 'RRR']
+    return ''.join(mapping[idx] for idx in ann)
+
 def compute_accuracy(true_ann, pred_ann):
     # Check annoation length
     if len(true_ann) != len(pred_ann):
@@ -249,58 +228,27 @@ def compute_accuracy(true_ann, pred_ann):
         # Print stats
         compare_anns.print_all(true_ann, pred_ann)
 
-#build model
-d=[1,3,3,3,3,3,3]
-
-#load into data
-data = {}
-for i in np.arange(1,11):
-    temp={}
-    temp[f'genome{str(i)}'] = translate_observations_to_indices(read_fasta_file(f'genome{str(i)}.fa')[f'genome{str(i)}'])
-    data.update(temp)
-for i in np.arange(1,6):
-    temp={}
-    temp[f'true-ann{str(i)}'] = translate_annotations_to_indices(read_fasta_file(f'true-ann{str(i)}.fa')[f'true-ann{str(i)}'])
-    data.update(temp)
-
-#hmm([1,0,0,0,0,0,0], np.zeros((7,7)),np.zeros((7,66)))
-
-data2=data
-#group data into codons
-for i in np.arange(1,6):
-    data2[f"true-ann{str(i)}"]=group_codons(data[f"true-ann{str(i)}"])    
-
-#5-fold check
-#count emission probs
-result=[]
-for i in np.arange(1,6):
-    four_test=np.delete(np.arange(5),[i-1])
-    four_genome=[]
-    four_ann=[]
-    for j in four_test:
-        four_genome.extend(data2[f"genome{str(j+1)}"])
-        four_ann.extend(data2[f"true-ann{str(j+1)}"])
-    result.append(training_by_counting_var(7,68,four_genome,four_ann))
-
-data3=data2
-#compute best model
 accuracy=[]
-correctdata={}
 for i in np.arange(5):
-    data3[f"pred-ann{str(i+1)}"]=backtrack_log_var(result[i],data3[f"genome{str(i+1)}"],compute_w_log_var(result[i],data3[f"genome{str(i+1)}"]))
-    correctdata[]
-    accuracy.append(compute_accuracy(translate_indices_to_annotations(data3[f"true-ann{str(i+1)}"]),translate_indices_to_annotations(data3[f"pred-ann{str(i+1)}"])))
+    accuracy.append(compute_accuracy(data[f"true-ann{str(i+1)}"],translate_indices_to_annotations(data4[f"pred-ann{str(i+1)}"])))
 
 best_model=np.argmax(accuracy)
 print(best_model)
 
-data4=data3
+
+
+
+
+
+#write fasta file
+def write_fasta_file(filename,string):
+    f=open(f"{filename}.fa","w")
+    f.write(f">{filename}\n{string}\n")
+    f.close()
+
+data5=data4
 for i in np.arange(6,11):
     #decode using best model
-    data4[f"pred-ann{str(i)}"]=backtrack_log_var(result[best_model],data4[f"genome{str(i)}"],compute_w_log_var(result[best_model],data4[f"genome{str(i)}"]))
-    accuracy.append(compute_accuracy(data4[f"true-ann{str(i)}"],data4[f"pred-ann{str(i)}"]))
+    data5[f"pred-ann{str(i)}"]=backtrack_log_var(result[best_model],data5[f"genome{str(i)}"],compute_w_log_var(result[best_model],data5[f"genome{str(i)}"]))
     #write to file
-    write_fasta_file(f"pred-ann{str(i)}",data4[f"pred-ann{str(i)}"])
-
-
-#extra - decode when all five used
+    write_fasta_file(f"pred-ann{str(i)}",translate_indices_to_annotations(data5[f"pred-ann{str(i)}"]))
