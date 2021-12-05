@@ -45,7 +45,7 @@ def translate_annotations_to_indices(obs):
     return [mapping[symbol] for symbol in obs]
 
 triplet_indices=[[0],[1],[2],[3]]
-triplet_indices+=[list(x) for x in itertools.combinations_with_replacement([0,1,2,3],3)]
+triplet_indices+=[list(x) for x in itertools.product([0,1,2,3],repeat=3)]
 
 #group codons
 def group_codons(ann):
@@ -259,7 +259,6 @@ for i in np.arange(1,6):
 
 #hmm([1,0,0,0,0,0,0], np.zeros((7,7)),np.zeros((7,66)))
 
-#potetial problem - [0] [1] [2] [3] in a list like [0,0,0]?
 data2=data
 #group data into codons
 for i in np.arange(1,6):
@@ -275,7 +274,7 @@ for i in np.arange(1,6):
     for j in four_test:
         four_genome.extend(data2[f"genome{str(j+1)}"])
         four_ann.extend(data2[f"true-ann{str(j+1)}"])
-    result.append(training_by_counting_var(7,66,four_genome,four_ann))
+    result.append(training_by_counting_var(7,68,four_genome,four_ann))
 
 #compute best model
 accuracy=[]
