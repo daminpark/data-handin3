@@ -95,7 +95,7 @@ def translate_indices_to_observations(indices):
 
 #translate states back to annotations string
 def translate_indices_to_annotations(ann):
-    mapping = ['N', 'C', 'C', 'C', 'R', 'R', 'R']
+    mapping = ['N', 'CCC', 'CCC', 'CCC', 'RRR', 'RRR', 'RRR']
     return ''.join(mapping[idx] for idx in ann)
 
 #create a class
@@ -149,7 +149,13 @@ def compute_w_log_var(model, x):
     # ...
     for j in np.arange(1,n):
         for i in np.arange(0,k):
-            w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
+            if i != 0:
+                if len(x[j-d[i]+1:j+1])==3:
+                    w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
+                else:
+                    w[i,j]=np.log(0)
+            else:
+                w[i,j]=np.log(model.emission_probs[i,triplet_indices.index(x[j-d[i]+1:j+1])])+max(w[:,j-d[i]]+np.log(np.array(model.trans_probs)[:,i]))
     return w
 
 def backtrack_log(model, x, w):
@@ -170,7 +176,7 @@ def backtrack_log_var(model, x, w):
     while total>0:
         #check this line
         zstar.append(np.argmax(np.log(model.emission_probs[zstar[count-1],triplet_indices.index(x[total-d[zstar[count-1]]:total])])+w[:,total-1]+np.log(np.array(model.trans_probs)[:,zstar[count-1]])))
-        total-=zstar(count)
+        total-=d[zstar[count]]
         count+=1
     zstar.reverse()
     return zstar
@@ -276,21 +282,25 @@ for i in np.arange(1,6):
         four_ann.extend(data2[f"true-ann{str(j+1)}"])
     result.append(training_by_counting_var(7,68,four_genome,four_ann))
 
+data3=data2
 #compute best model
 accuracy=[]
+correctdata={}
 for i in np.arange(5):
-    data[f"pred-ann{str(i+1)}"]=backtrack_log_var(result[i],data[f"genome{str(i+1)}"],compute_w_log_var(result[i],data[f"genome{str(i+1)}"]))
-    accuracy.append(compute_accuracy(data[f"true-ann{str(i+1)}"],data[f"pred-ann{str(i+1)}"]))
+    data3[f"pred-ann{str(i+1)}"]=backtrack_log_var(result[i],data3[f"genome{str(i+1)}"],compute_w_log_var(result[i],data3[f"genome{str(i+1)}"]))
+    correctdata[]
+    accuracy.append(compute_accuracy(translate_indices_to_annotations(data3[f"true-ann{str(i+1)}"]),translate_indices_to_annotations(data3[f"pred-ann{str(i+1)}"])))
 
 best_model=np.argmax(accuracy)
 print(best_model)
 
+data4=data3
 for i in np.arange(6,11):
     #decode using best model
-    data[f"pred-ann{str(i)}"]=backtrack_log_var(result[best_model],data[f"genome{str(i)}"],compute_w_log_var(result[best_model],data[f"genome{str(i)}"]))
-    accuracy.append(compute_accuracy(data[f"true-ann{str(i)}"],data[f"pred-ann{str(i)}"]))
+    data4[f"pred-ann{str(i)}"]=backtrack_log_var(result[best_model],data4[f"genome{str(i)}"],compute_w_log_var(result[best_model],data4[f"genome{str(i)}"]))
+    accuracy.append(compute_accuracy(data4[f"true-ann{str(i)}"],data4[f"pred-ann{str(i)}"]))
     #write to file
-    write_fasta_file(f"pred-ann{str(i)}",data[f"pred-ann{str(i)}"])
+    write_fasta_file(f"pred-ann{str(i)}",data4[f"pred-ann{str(i)}"])
 
 
 #extra - decode when all five used
