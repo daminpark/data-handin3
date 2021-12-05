@@ -44,47 +44,45 @@ def translate_annotations_to_indices(obs):
     mapping = {'N': 0, 'C': 7, 'R': 8}
     return [mapping[symbol] for symbol in obs]
 
-triplet_indices=[0,1,2,3]
+triplet_indices=[[0],[1],[2],[3]]
 triplet_indices+=[list(x) for x in itertools.combinations_with_replacement([0,1,2,3],3)]
 
 #group codons
 def group_codons(ann):
     i=1
-    while i <= len(ann):
-        if ann[i-1:i+1]==[0,0]:
-            pass
-        elif ann[i-1:i+1]==[1,7] or ann[i-1:i+1]==[2,7]:
-            ann[i]=2
-            ann.pop(i+1)
-            ann.pop(i+2)
-        elif ann[i-1:i+1]==[4,8] or ann[i-1:i+1]==[5,8]:
-            ann[i]=5
-            ann.pop(i+1)
-            ann.pop(i+2)
-        elif ann[i-1:i+1]==[0,7]:
-            ann[i]=1
-            ann.pop(i+1)
-            ann.pop(i+2)
-        elif ann[i-1:i+1]==[0,8]:
-            ann[i]=4
-            ann.pop(i+1)
-            ann.pop(i+2)
-        elif ann[i-1:i+1]==[2,0]:
-            ann[i-1]=3
-        elif ann[i-1:i+1]==[5,0]:
-            ann[i-1]=6
-        elif ann[i-1:i+1]==[2,8]:
-            ann[i-1]=3
-            ann[i]=4
-            ann.pop(i+1)
-            ann.pop(i+2)
-        elif ann[i-1:i+1]==[5,7]:
-            ann[i-1]=5
-            ann[i]=1
-            ann.pop(i+1)
-            ann.pop(i+2)
+    out=[0]
+    while i < len(ann):
+        if out[-1]==0 and ann[i]==0:
+            out.append(0)
+        elif (out[-1]==1 and ann[i]==7) or (out[-1]==2 and ann[i]==7) :
+            out.append(2)
+            i+=2
+        elif (out[-1]==4 and ann[i]==8)  or (out[-1]==5 and ann[i]==8) :
+            out.append(5)
+            i+=2
+        elif (out[-1]==0 and ann[i]==7) :
+            out.append(1)
+            i+=2
+        elif (out[-1]==0 and ann[i]==8) :
+            out.append(4)
+            i+=2
+        elif (out[-1]==2 and ann[i]==0) :
+            out[-1]=3
+            out.append(0)
+        elif (out[-1]==5 and ann[i]==0) :
+            out[-1]=6
+            out.append(0)
+        elif (out[-1]==2 and ann[i]==8) :
+            out[-1]=3
+            out.append(4)
+            i+=2
+        elif (out[-1]==5 and ann[i]==7) :
+            out[-1]=6
+            out.append(1)
+            i+=2
         i+=1
-    return ann
+    return out
+
 """
 #translate back to observations string
 def translate_indices_to_observations(indices):
@@ -262,10 +260,10 @@ for i in np.arange(1,6):
 #hmm([1,0,0,0,0,0,0], np.zeros((7,7)),np.zeros((7,66)))
 
 #potetial problem - [0] [1] [2] [3] in a list like [0,0,0]?
-
+data2=data
 #group data into codons
 for i in np.arange(1,6):
-    data[f"true-ann{str(i)}"]=group_codons(data[f"true-ann{str(i)}"])    
+    data2[f"true-ann{str(i)}"]=group_codons(data[f"true-ann{str(i)}"])    
 
 #5-fold check
 #count emission probs
@@ -275,8 +273,8 @@ for i in np.arange(1,6):
     four_genome=[]
     four_ann=[]
     for j in four_test:
-        four_genome.extend(data[f"genome{str(j+1)}"])
-        four_ann.extend(data[f"true-ann{str(j+1)}"])
+        four_genome.extend(data2[f"genome{str(j+1)}"])
+        four_ann.extend(data2[f"true-ann{str(j+1)}"])
     result.append(training_by_counting_var(7,66,four_genome,four_ann))
 
 #compute best model
@@ -297,5 +295,3 @@ for i in np.arange(6,11):
 
 
 #extra - decode when all five used
-
-"""
