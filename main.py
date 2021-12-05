@@ -215,6 +215,17 @@ def training_by_counting(K, D, x, z):
     trans_probs/=np.sum(trans_probs,1).reshape(-1,1)
     emission_probs/=np.sum(emission_probs,1).reshape(-1,1)
     return hmm(init_probs,trans_probs,emission_probs)
+
+def training_by_counting_var(K, D, x, z):
+    """
+    Returns a HMM trained on x and z cf. training-by-counting.
+    """
+    init_probs=np.zeros(K)
+    init_probs[z[0]]=1
+    trans_probs,emission_probs=count_transitions_and_emissions_var(K,D,x,z)
+    trans_probs/=np.sum(trans_probs,1).reshape(-1,1)
+    emission_probs/=np.sum(emission_probs,1).reshape(-1,1)
+    return hmm(init_probs,trans_probs,emission_probs)
 """
 def ac(z,zstar):
     tp=
@@ -266,15 +277,21 @@ for i in np.arange(1,6):
     for j in four_test:
         four_genome.extend(data[f"genome{str(j+1)}"])
         four_ann.extend(data[f"true-ann{str(j+1)}"])
-    result.append(training_by_counting(7,66,four_genome,four_ann))
+    result.append(training_by_counting_var(7,66,four_genome,four_ann))
 
 #compute best model
+accuracy=[]
 for i in np.arange(5):
-    result[i]
+    data[f"pred-ann{str(i+1)}"]=backtrack_log_var(result[i],data[f"genome{str(i+1)}"],compute_w_log_var(result[i],data[f"genome{str(i+1)}"]))
+    accuracy.append(compute_accuracy(data[f"true-ann{str(i+1)}"],data[f"pred-ann{str(i+1)}"]))
+
+best_model=np.argmax(accuracy)
+print(best_model)
 
 for i in np.arange(6,11):
     #decode using best model
-
+    data[f"pred-ann{str(i)}"]=backtrack_log_var(result[best_model],data[f"genome{str(i)}"],compute_w_log_var(result[best_model],data[f"genome{str(i)}"]))
+    accuracy.append(compute_accuracy(data[f"true-ann{str(i)}"],data[f"pred-ann{str(i)}"]))
     #write to file
     write_fasta_file(f"pred-ann{str(i)}",data[f"pred-ann{str(i)}"])
 
