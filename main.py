@@ -198,8 +198,8 @@ def count_transitions_and_emissions_var(K, D, x, z):
     count=0
     total=0
     while total < len(x):
-        kxd[z[i]][triplet_indices.index(x[total-d[zstar[count-1]]:total])]+=1
-        total+=d[z[i]]
+        kxd[z[count]][triplet_indices.index(x[total:total+d[z[count]]])]+=1
+        total+=d[z[count]]
         count+=1
     for j in np.arange(len(z)-1):
         kxk[z[j]][z[j+1]]+=1
@@ -249,6 +249,8 @@ for i in np.arange(1,6):
     data.update(temp)
 
 #hmm([1,0,0,0,0,0,0], np.zeros((7,7)),np.zeros((7,66)))
+
+#potetial problem - [0] [1] [2] [3] in a list like [0,0,0]?
 
 #group data into codons
 for i in np.arange(1,6):
